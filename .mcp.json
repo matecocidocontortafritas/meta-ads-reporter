@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "meta-ads-server": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/meta_ads_server.py"],
+      "env": {
+        "META_ADS_CONFIG_PATH": "${META_ADS_CONFIG_PATH}"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "meta-ads-reporter",
+  "version": "0.1.0",
+  "description": "Reporte automático diario de Meta Ads con envío a Discord. Cubre métricas de alcance, embudo e-commerce y ROAS para ayer, 7 días, 30 días y trimestre.",
+  "author": {
+    "name": "matecocido"
+  },
+  "keywords": ["meta-ads", "facebook-ads", "marketing", "discord", "ecommerce", "reporting"]
+}

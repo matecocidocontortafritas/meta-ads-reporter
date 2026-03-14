@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+config.json
+*.plugin
+meta-ads-dashboard.html
+*.html.bak

@@ -1,0 +1,11 @@
+{
+  "name": "meta-ads-reporter",
+  "description": "Plugins para reportes automatizados de Meta Ads con dashboard HTML interactivo y notificaciones Discord. Soporta múltiples cuentas publicitarias.",
+  "plugins": [
+    {
+      "name": "meta-ads-reporter",
+      "path": ".",
+      "homepage": "https://github.com/matecocidocontortafritas/meta-ads-reporter"
+    }
+  ]
+}

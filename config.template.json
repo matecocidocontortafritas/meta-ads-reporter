@@ -1,0 +1,20 @@
+{
+  "_instrucciones": "Copiá este archivo como config.json en ~/.meta-ads-reporter/config.json y completá los valores.",
+
+  "accounts": [
+    {
+      "name": "Mi Tienda Principal",
+      "account_id": "act_XXXXXXXXXX",
+      "access_token": "EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "name": "Cliente B (ejemplo de segunda cuenta)",
+      "account_id": "act_YYYYYYYYYY",
+      "access_token": "EAAyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    }
+  ],
+
+  "discord_webhook_url": "https://discord.com/api/webhooks/XXXXXXXXXX/xxxxxxxxxxxxxxxxxxxxxxxxxx",
+
+  "dashboard_output_path": "~/Documents/meta-ads-dashboard.html"
+}

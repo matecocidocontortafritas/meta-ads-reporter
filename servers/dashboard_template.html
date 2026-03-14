@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meta Ads Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --primary: #4f46e5;
+      --primary-light: #eef2ff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --r: 10px;
+      --sh: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+      --sh-md: 0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.04);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    .hd {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--sh);
+    }
+    .hd-left { display: flex; align-items: center; gap: 12px; }
+    .hd-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 2px 8px rgba(79,70,229,.35);
+    }
+    .hd-title { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .hd-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .hd-right { display: flex; align-items: center; gap: 10px; }
+    select {
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      font-weight: 500;
+    }
+    select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+    .btn-pdf {
+      padding: 7px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(79,70,229,.4);
+      transition: background .15s;
+    }
+    .btn-pdf:hover { background: #4338ca; }
+
+    /* LAYOUT */
+    .main { max-width: 1440px; margin: 0 auto; padding: 28px 28px 40px; }
+
+    /* PERIOD TABS */
+    .tabs {
+      display: flex;
+      gap: 3px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 4px;
+      margin-bottom: 24px;
+      width: fit-content;
+      box-shadow: var(--sh);
+    }
+    .tab {
+      padding: 7px 20px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .tab.on {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 1px 4px rgba(79,70,229,.4);
+    }
+    .tab:not(.on):hover { background: var(--primary-light); color: var(--primary); }
+
+    /* SECTION LABEL */
+    .sec-lbl {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* KPI GRID */
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .kpi {
+      background: var(--surface);
+      border-radius: var(--r);
+      padding: 20px 20px 16px;
+      box-shadow: var(--sh);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--primary);
+      opacity: .15;
+    }
+    .kpi.accent::before { opacity: 1; }
+    .kpi-icon { font-size: 18px; margin-bottom: 8px; display: block; }
+    .kpi-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .kpi-val { font-size: 26px; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+    .kpi-val.g { color: var(--green); }
+    .kpi-val.r { color: var(--red); }
+    .kpi-val.p { color: var(--primary); }
+    .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+    /* FUNNEL */
+    .funnel-box {
+      background: var(--surface);
+      border-radius: var(--r);
+      padding: 20px 24px;
+      box-shadow: var(--sh);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .funnel-steps {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .fstep {
+      flex: 1;
+      text-align: center;
+      padding: 14px 8px;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .fstep:last-child { border-right: none; }
+    .fstep-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+    .fstep-val { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+    .fstep-val.zero { color: #cbd5e1; }
+    .fstep-pct { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+    /* CHART */
+    .chart-box {
+      background: var(--surface);
+      border-radius: var(--r);
+      padding: 20px 24px;
+      box-shadow: var(--sh);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .chart-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .chart-title { font-size: 15px; font-weight: 700; }
+    .chart-wrap { height: 250px; position: relative; }
+    .no-chart-msg {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      height: 250px;
+      color: var(--muted);
+      font-size: 14px;
+      gap: 8px;
+    }
+
+    /* TABLE */
+    .tbl-box {
+      background: var(--surface);
+      border-radius: var(--r);
+      box-shadow: var(--sh);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .tbl-hd {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tbl-title { font-size: 15px; font-weight: 700; }
+    .tbl-sub { font-size: 12px; color: var(--muted); }
+    .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    thead th {
+      background: #f8fafc;
+      padding: 9px 11px;
+      text-align: right;
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transition: background .1s;
+    }
+    thead th:first-child { text-align: left; min-width: 160px; }
+    thead th:hover { background: #f1f5f9; color: var(--primary); }
+    thead th.sorted { color: var(--primary); background: var(--primary-light); }
+    tbody td {
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    tbody td:first-child {
+      text-align: left;
+      font-weight: 500;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbff; }
+    td.g { color: var(--green); font-weight: 600; }
+    td.r { color: var(--red); }
+    td.zero { color: #cbd5e1; }
+    .no-data { padding: 48px; text-align: center; color: var(--muted); font-size: 14px; }
+
+    /* FOOTER */
+    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; }
+
+    /* PRINT */
+    @media print {
+      .hd .btn-pdf, .hd select, .tabs { display: none !important; }
+      .hd { position: relative; box-shadow: none; border-bottom: 2px solid #e2e8f0; }
+      .main { padding: 16px; }
+      body { background: white; }
+      .kpi, .funnel-box, .chart-box, .tbl-box { box-shadow: none; break-inside: avoid; margin-bottom: 16px; }
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 760px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .main { padding: 16px; }
+      .hd { padding: 0 16px; }
+      .hd-title { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="hd-left">
+    <div class="hd-icon">📊</div>
+    <div>
+      <div class="hd-title">Meta Ads Dashboard</div>
+      <div class="hd-sub" id="hd-sub">Cargando...</div>
+    </div>
+  </div>
+  <div class="hd-right">
+    <select id="acc-sel" onchange="setAccount(+this.value)"></select>
+    <button class="btn-pdf" onclick="window.print()">🖨 Exportar PDF</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="yesterday" onclick="setPeriod('yesterday')">Ayer</button>
+    <button class="tab" data-p="last_7d" onclick="setPeriod('last_7d')">7 días</button>
+    <button class="tab" data-p="last_30d" onclick="setPeriod('last_30d')">30 días</button>
+    <button class="tab" data-p="this_quarter" onclick="setPeriod('this_quarter')">Trimestre</button>
+  </div>
+
+  <div class="sec-lbl" id="kpi-lbl">Métricas de rendimiento</div>
+  <div class="kpis" id="kpis-row1"></div>
+  <div class="kpis" id="kpis-row2" style="margin-bottom:20px"></div>
+
+  <div class="funnel-box">
+    <div class="sec-lbl">Embudo de conversión</div>
+    <div class="funnel-steps" id="funnel"></div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-hd">
+      <span class="chart-title" id="chart-title">📈 Tendencia diaria</span>
+    </div>
+    <div id="no-chart-msg" class="no-chart-msg">
+      <span>📅</span> Seleccioná 7 días, 30 días o Trimestre para ver la tendencia
+    </div>
+    <div class="chart-wrap" id="chart-wrap">
+      <canvas id="main-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="tbl-box">
+    <div class="tbl-hd">
+      <span class="tbl-title">📋 Campañas activas</span>
+      <span class="tbl-sub">Datos de ayer · Clic en columna para ordenar</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer" id="footer"></div>
+</div>
+
+<script>
+const DATA = __DASHBOARD_DATA__;
+
+let acc = 0;
+let period = 'yesterday';
+let chart = null;
+let sortCol = 1;
+let sortDir = -1;
+
+const PERIOD_LABELS = {
+  yesterday: 'Ayer',
+  last_7d: 'Últimos 7 días',
+  last_30d: 'Últimos 30 días',
+  this_quarter: 'Este trimestre'
+};
+
+const COLS = [
+  { h: 'Campaña',      k: 'campaign_name',      t: 's',  w: 180 },
+  { h: 'Gasto',        k: 'spend',               t: '$' },
+  { h: 'Ingresos',     k: 'revenue',             t: '$' },
+  { h: 'ROAS',         k: 'roas',                t: 'x' },
+  { h: 'Compras',      k: 'purchases',           t: 'i' },
+  { h: 'Impresiones',  k: 'impressions',         t: 'i' },
+  { h: 'Alcance',      k: 'reach',               t: 'i' },
+  { h: 'CPM',          k: 'cpm',                 t: '$' },
+  { h: 'Clics',        k: 'clicks',              t: 'i' },
+  { h: 'CTR',          k: 'ctr',                 t: '%' },
+  { h: 'Visitas LP',   k: 'landing_page_views',  t: 'i' },
+  { h: 'Ver Cont.',    k: 'view_content',         t: 'i' },
+  { h: 'Carrito',      k: 'add_to_cart',          t: 'i' },
+  { h: 'Checkout',     k: 'initiate_checkout',    t: 'i' },
+  { h: 'Info Pago',    k: 'add_payment_info',     t: 'i' },
+];
+
+/* ── Formatters ── */
+function fmt(v, t) {
+  const x = parseFloat(v);
+  if (t === 's') return v || '—';
+  if (isNaN(x)) return '—';
+  switch (t) {
+    case '$': return x === 0 ? '$0.00' : '$' + x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    case '%': return x.toFixed(2) + '%';
+    case 'x': return x.toFixed(2) + 'x';
+    case 'i': return x === 0 ? '—' : Math.round(x).toLocaleString('es-AR');
+    default:  return x.toLocaleString('es-AR');
+  }
+}
+
+function roasClass(v) {
+  const x = parseFloat(v);
+  if (isNaN(x) || x === 0) return 'zero';
+  return x >= 2.5 ? 'g' : x < 1 ? 'r' : '';
+}
+
+function zeroClass(v, t) {
+  if (t === 's') return '';
+  const x = parseFloat(v);
+  return (isNaN(x) || x === 0) ? 'zero' : '';
+}
+
+/* ── Init ── */
+function init() {
+  const sel = document.getElementById('acc-sel');
+  if (DATA.length <= 1) {
+    sel.style.display = 'none';
+  } else {
+    DATA.forEach((a, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = a.name;
+      sel.appendChild(o);
+    });
+  }
+  render();
+}
+
+function setAccount(v) { acc = v; render(); }
+
+function setPeriod(p) {
+  period = p;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.p === p));
+  render();
+}
+
+function render() {
+  const a = DATA[acc];
+  document.getElementById('hd-sub').textContent = (a ? a.name + ' · ' : '') + (a ? a.generated_at : '');
+  document.getElementById('footer').textContent = 'Generado automáticamente por Claude · ' + (a ? a.generated_at : '');
+  document.getElementById('kpi-lbl').textContent = PERIOD_LABELS[period] + ' — Métricas clave';
+  renderKPIs();
+  renderFunnel();
+  renderChart();
+  renderTable();
+}
+
+/* ── KPI Cards ── */
+function renderKPIs() {
+  const d = (DATA[acc].periods || {})[period] || {};
+
+  const row1 = [
+    { icon: '💰', lbl: 'Gasto',    val: fmt(d.spend, '$'),    sub: '',                        cls: 'p accent' },
+    { icon: '💲', lbl: 'Ingresos', val: fmt(d.revenue, '$'),  sub: '',                        cls: '' },
+    { icon: '📈', lbl: 'ROAS',     val: fmt(d.roas, 'x'),     sub: 'retorno sobre inversión', cls: roasClass(d.roas) },
+    { icon: '🛍️', lbl: 'Compras',  val: fmt(d.purchases, 'i'),sub: '',                        cls: '' },
+  ];
+
+  const row2 = [
+    { icon: '👁️', lbl: 'Impresiones', val: fmt(d.impressions, 'i'), sub: 'Alcance: ' + fmt(d.reach, 'i'), cls: '' },
+    { icon: '🖱️', lbl: 'Clics',       val: fmt(d.clicks, 'i'),      sub: '',                              cls: '' },
+    { icon: '🎯', lbl: 'CTR',          val: fmt(d.ctr, '%'),          sub: 'Visitas LP: ' + fmt(d.landing_page_views, 'i'), cls: '' },
+    { icon: '💵', lbl: 'CPM',          val: fmt(d.cpm, '$'),          sub: 'costo por 1,000 impresiones',  cls: '' },
+  ];
+
+  function buildRow(cards, id) {
+    document.getElementById(id).innerHTML = cards.map(c =>
+      `<div class="kpi ${c.cls||''}">
+        <span class="kpi-icon">${c.icon}</span>
+        <div class="kpi-lbl">${c.lbl}</div>
+        <div class="kpi-val ${c.cls && c.cls.includes('g') ? 'g' : c.cls && c.cls.includes('r') ? 'r' : c.cls && c.cls.includes('p') ? 'p' : ''}">${c.val}</div>
+        ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+      </div>`
+    ).join('');
+  }
+
+  buildRow(row1, 'kpis-row1');
+  buildRow(row2, 'kpis-row2');
+}
+
+/* ── Funnel ── */
+function renderFunnel() {
+  const d = (DATA[acc].periods || {})[period] || {};
+  const steps = [
+    { lbl: 'Ver Contenido', key: 'view_content' },
+    { lbl: 'Carrito',       key: 'add_to_cart' },
+    { lbl: 'Checkout',      key: 'initiate_checkout' },
+    { lbl: 'Info Pago',     key: 'add_payment_info' },
+    { lbl: 'Compras',       key: 'purchases' },
+  ];
+
+  document.getElementById('funnel').innerHTML = steps.map((s, i) => {
+    const val = parseFloat(d[s.key]) || 0;
+    const prev = i > 0 ? (parseFloat(d[steps[i-1].key]) || 0) : 0;
+    const pct = (i > 0 && prev > 0) ? ' (' + Math.round((val/prev)*100) + '%)' : '';
+    return `<div class="fstep">
+      <div class="fstep-lbl">${s.lbl}</div>
+      <div class="fstep-val ${val === 0 ? 'zero' : ''}">${val === 0 ? '—' : Math.round(val).toLocaleString('es-AR')}</div>
+      ${pct ? `<div class="fstep-pct">${pct}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── Chart ── */
+function renderChart() {
+  const series = (DATA[acc].daily_series) || [];
+  const noMsg = document.getElementById('no-chart-msg');
+  const wrap  = document.getElementById('chart-wrap');
+
+  if (series.length === 0 || period === 'yesterday') {
+    noMsg.style.display = 'flex';
+    wrap.style.display = 'none';
+    if (chart) { chart.destroy(); chart = null; }
+    document.getElementById('chart-title').textContent = '📈 Tendencia diaria';
+    return;
+  }
+
+  noMsg.style.display = 'none';
+  wrap.style.display = 'block';
+
+  let slice;
+  if (period === 'last_7d')       slice = series.slice(-7);
+  else if (period === 'last_30d') slice = series.slice(-30);
+  else                             slice = series;
+
+  document.getElementById('chart-title').textContent = `📈 Tendencia diaria — ${PERIOD_LABELS[period]}`;
+
+  const labels  = slice.map(d => { const [,m,day] = d.date.split('-'); return `${day}/${m}`; });
+  const spends  = slice.map(d => parseFloat(d.spend)  || 0);
+  const roases  = slice.map(d => parseFloat(d.roas)   || 0);
+  const compras = slice.map(d => parseFloat(d.purchases) || 0);
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById('main-chart'), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Gasto ($)',
+          data: spends,
+          backgroundColor: 'rgba(79,70,229,0.12)',
+          borderColor: 'rgba(79,70,229,0.7)',
+          borderWidth: 1.5,
+          borderRadius: 4,
+          yAxisID: 'ySpend',
+        },
+        {
+          type: 'line',
+          label: 'ROAS',
+          data: roases,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.06)',
+          borderWidth: 2.5,
+          pointRadius: 2.5,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#10b981',
+          tension: 0.35,
+          fill: false,
+          yAxisID: 'yROAS',
+        },
+        {
+          type: 'line',
+          label: 'Compras',
+          data: compras,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.06)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          fill: false,
+          yAxisID: 'yCompras',
+          hidden: slice.length > 14,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { font: { size: 11 }, boxWidth: 12, padding: 14, usePointStyle: true }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 0) return `  Gasto: $${ctx.raw.toLocaleString('es-AR', {minimumFractionDigits:2})}`;
+              if (ctx.datasetIndex === 1) return `  ROAS: ${ctx.raw.toFixed(2)}x`;
+              return `  Compras: ${Math.round(ctx.raw)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 10 }, maxTicksLimit: 16, color: '#94a3b8' }
+        },
+        ySpend: {
+          position: 'left',
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => '$' + v.toLocaleString('es-AR') }
+        },
+        yROAS: {
+          position: 'right',
+          grid: { display: false },
+          ticks: { font: { size: 10 }, color: '#10b981', callback: v => v.toFixed(1) + 'x' }
+        },
+        yCompras: {
+          position: 'right',
+          display: false,
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+/* ── Campaign Table ── */
+function sortTable(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = -1; }
+  renderTable();
+}
+
+function renderTable() {
+  const camps = [...((DATA[acc].campaigns) || [])];
+
+  camps.sort((a, b) => {
+    const k = COLS[sortCol].k;
+    const t = COLS[sortCol].t;
+    if (t === 's') {
+      return (a[k]||'').localeCompare(b[k]||'') * sortDir;
+    }
+    const va = parseFloat(a[k]) || 0;
+    const vb = parseFloat(b[k]) || 0;
+    return (va - vb) * sortDir;
+  });
+
+  document.getElementById('tbl-head').innerHTML =
+    '<tr>' + COLS.map((c, i) => {
+      const cls = sortCol === i ? 'sorted' : '';
+      const arrow = sortCol === i ? (sortDir > 0 ? ' ↑' : ' ↓') : '';
+      return `<th class="${cls}" onclick="sortTable(${i})">${c.h}${arrow}</th>`;
+    }).join('') + '</tr>';
+
+  if (!camps.length) {
+    document.getElementById('tbl-body').innerHTML =
+      `<tr><td colspan="${COLS.length}" class="no-data">No hay campañas activas con datos para ayer</td></tr>`;
+    return;
+  }
+
+  document.getElementById('tbl-body').innerHTML = camps.map(c =>
+    '<tr>' + COLS.map(col => {
+      const v = c[col.k];
+      const display = fmt(v, col.t);
+      let cls = col.k === 'roas' ? roasClass(v) : zeroClass(v, col.t);
+      return `<td class="${cls}">${display}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
