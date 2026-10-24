@@ -1,15 +1,13 @@
 """
-Meta Ads Reporter v2 — MCP Server
-Multi-cuenta, generación de dashboard HTML, notificación Discord.
+Meta Ads Reporter v3 — MCP Server
+Multi-cuenta, períodos ampliados, breakdowns por dimensión, dashboard HTML, Discord.
 
 Configuración: ~/.meta-ads-reporter/config.json
-O usar la variable de entorno META_ADS_CONFIG_PATH para indicar otra ruta.
 """
 
 import os
 import json
 import datetime
-import pathlib
 import requests
 from mcp.server.fastmcp import FastMCP
 
@@ -27,16 +25,28 @@ DAILY_FIELDS = ",".join([
     "purchase_roas", "actions", "action_values",
 ])
 
+BREAKDOWN_FIELDS = "spend,impressions,reach,cpm,ctr,clicks"
+
 MONTHS_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
 ]
 
+# Períodos que se traen para las date tabs
+PERIODS = ["yesterday", "last_7d", "this_month", "last_month", "last_quarter"]
+
+# Breakdowns (referencia: últimos 30 días)
+BREAKDOWN_MAP = {
+    "region":     "region",
+    "hour":       "hourly_stats_aggregated_by_advertiser_time_zone",
+    "gender_age": "gender,age",
+    "platform":   "publisher_platform,impression_device",
+}
+
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
 def load_config() -> dict:
-    """Lee el archivo config.json desde la ruta configurada."""
     path = os.environ.get(
         "META_ADS_CONFIG_PATH",
         os.path.expanduser("~/.meta-ads-reporter/config.json"),
@@ -50,22 +60,19 @@ def load_config() -> dict:
 def norm_account(aid: str) -> str:
     return aid if aid.startswith("act_") else f"act_{aid}"
 
-
-def extract_action(actions: list, action_type: str) -> str:
+def extract_action(actions, action_type):
     for a in actions or []:
         if a.get("action_type") == action_type:
             return a.get("value", "0")
     return "0"
 
-
-def extract_outbound(outbound: list) -> str:
+def extract_outbound(outbound):
     for item in outbound or []:
         if item.get("action_type") == "outbound_click":
             return item.get("value", "0")
     return "0"
 
-
-def extract_roas(purchase_roas: list) -> str:
+def extract_roas(purchase_roas):
     for r in purchase_roas or []:
         if r.get("action_type") in ("omni_purchase", "purchase"):
             return r.get("value", "0")
@@ -73,8 +80,7 @@ def extract_roas(purchase_roas: list) -> str:
         return purchase_roas[0].get("value", "0")
     return "0"
 
-
-def format_insights(raw_list: list) -> dict:
+def format_insights(raw_list):
     if not raw_list:
         return {}
     d = raw_list[0]
@@ -99,8 +105,7 @@ def format_insights(raw_list: list) -> dict:
         "roas":               extract_roas(d.get("purchase_roas", [])),
     }
 
-
-def format_campaign(raw: dict) -> dict:
+def format_campaign(raw):
     actions = raw.get("actions", [])
     action_values = raw.get("action_values", [])
     return {
@@ -126,8 +131,7 @@ def format_campaign(raw: dict) -> dict:
 
 # ─── API calls ─────────────────────────────────────────────────────────────────
 
-def api_insights(token: str, account_id: str, date_preset: str, level: str) -> list:
-    """Llama a la API de insights de Meta Ads."""
+def api_insights(token, account_id, date_preset, level):
     fields = INSIGHT_FIELDS
     if level == "campaign":
         fields = "campaign_name,campaign_id," + INSIGHT_FIELDS
@@ -137,42 +141,28 @@ def api_insights(token: str, account_id: str, date_preset: str, level: str) -> l
         "fields": fields,
         "date_preset": date_preset,
         "level": level,
-        "filtering": json.dumps([
-            {"field": "effective_status", "operator": "IN", "value": ["ACTIVE"]}
-        ]),
         "limit": 50,
     }
-    resp = requests.get(
-        f"{META_API_BASE}/{account_id}/insights",
-        params=params, timeout=30,
-    )
+    resp = requests.get(f"{META_API_BASE}/{account_id}/insights", params=params, timeout=30)
     data = resp.json()
     if "error" in data:
         raise RuntimeError(data["error"].get("message", "Error en Meta API"))
     return data.get("data", [])
 
 
-def api_daily_series(token: str, account_id: str) -> list:
-    """Obtiene los últimos 90 días con desglose diario para el gráfico."""
+def api_daily_series(token, account_id):
     params = {
         "access_token": token,
         "fields": DAILY_FIELDS,
         "date_preset": "last_90d",
         "level": "account",
         "time_increment": 1,
-        "filtering": json.dumps([
-            {"field": "effective_status", "operator": "IN", "value": ["ACTIVE"]}
-        ]),
         "limit": 100,
     }
-    resp = requests.get(
-        f"{META_API_BASE}/{account_id}/insights",
-        params=params, timeout=30,
-    )
+    resp = requests.get(f"{META_API_BASE}/{account_id}/insights", params=params, timeout=30)
     data = resp.json()
     if "error" in data:
         return []
-
     result = []
     for d in data.get("data", []):
         actions = d.get("actions", [])
@@ -186,14 +176,32 @@ def api_daily_series(token: str, account_id: str) -> list:
             "revenue":    extract_action(action_values, "purchase"),
             "roas":       extract_roas(d.get("purchase_roas", [])),
         })
-
     result.sort(key=lambda x: x["date"])
     return result
 
 
+def api_breakdown(token, account_id, date_preset, breakdown_param):
+    """Fetch data broken down by a specific dimension (region, hour, gender/age, platform)."""
+    params = {
+        "access_token": token,
+        "fields": BREAKDOWN_FIELDS,
+        "date_preset": date_preset,
+        "level": "account",
+        "breakdowns": breakdown_param,
+        "limit": 500,
+    }
+    resp = requests.get(f"{META_API_BASE}/{account_id}/insights", params=params, timeout=30)
+    data = resp.json()
+    if "error" in data:
+        return []
+    rows = data.get("data", [])
+    rows.sort(key=lambda x: float(x.get("spend", "0") or "0"), reverse=True)
+    return rows
+
+
 # ─── HTML Generator ────────────────────────────────────────────────────────────
 
-def generate_html(accounts_data: list) -> str:
+def generate_html(accounts_data):
     template_path = os.path.join(os.path.dirname(__file__), "dashboard_template.html")
     with open(template_path, encoding="utf-8") as f:
         template = f.read()
@@ -207,17 +215,8 @@ def generate_html(accounts_data: list) -> str:
 def create_dashboard_file(output_path: str = "") -> str:
     """
     Genera el dashboard HTML con datos de todas las cuentas configuradas.
-
-    Obtiene métricas para ayer, 7 días, 30 días y trimestre actual.
-    Incluye KPIs, embudo de conversión, gráfico de tendencia y tabla de campañas.
-
-    Args:
-        output_path: Ruta donde guardar el HTML.
-                     Por defecto usa 'dashboard_output_path' del config.json,
-                     o ~/Documents/meta-ads-dashboard.html si no está configurado.
-
-    Returns:
-        Ruta completa al archivo HTML generado.
+    Incluye: KPIs por período, comparativa este mes vs anterior, breakdowns
+    por región/hora/género+edad/plataforma, embudo, gráfico y tabla de campañas.
     """
     config = load_config()
 
@@ -243,19 +242,20 @@ def create_dashboard_file(output_path: str = "") -> str:
             "account_id":   account_id,
             "generated_at": timestamp,
             "periods":      {},
+            "breakdowns":   {"region": [], "hour": [], "gender_age": [], "platform": []},
             "campaigns":    [],
             "daily_series": [],
         }
 
-        # Aggregate metrics for 4 periods
-        for preset in ["yesterday", "last_7d", "last_30d", "this_quarter"]:
+        # ── Períodos de fecha ──────────────────────────────────────────────────
+        for preset in PERIODS:
             try:
                 raw = api_insights(token, account_id, preset, "account")
                 entry["periods"][preset] = format_insights(raw)
             except RuntimeError as e:
                 entry["periods"][preset] = {"error": str(e)}
 
-        # Campaign breakdown (yesterday only)
+        # ── Campañas (ayer) ────────────────────────────────────────────────────
         try:
             raw_camps = api_insights(token, account_id, "yesterday", "campaign")
             camps = [format_campaign(c) for c in raw_camps]
@@ -264,8 +264,15 @@ def create_dashboard_file(output_path: str = "") -> str:
         except RuntimeError:
             entry["campaigns"] = []
 
-        # Daily time series (last 90 days for chart)
+        # ── Serie diaria (gráfico) ─────────────────────────────────────────────
         entry["daily_series"] = api_daily_series(token, account_id)
+
+        # ── Breakdowns (últimos 30 días) ───────────────────────────────────────
+        for key, param in BREAKDOWN_MAP.items():
+            try:
+                entry["breakdowns"][key] = api_breakdown(token, account_id, "last_30d", param)
+            except Exception:
+                entry["breakdowns"][key] = []
 
         accounts_data.append(entry)
 
@@ -279,14 +286,7 @@ def create_dashboard_file(output_path: str = "") -> str:
 @mcp.tool()
 def send_discord_notification(dashboard_path: str) -> str:
     """
-    Envía una notificación a Discord indicando que el reporte está listo,
-    con la ruta al dashboard para abrirlo en el navegador.
-
-    Args:
-        dashboard_path: Ruta completa al archivo HTML generado (output de create_dashboard_file).
-
-    Returns:
-        Confirmación del envío o descripción del error.
+    Envía notificación a Discord con la ruta al dashboard generado.
     """
     config = load_config()
     webhook_url = config.get("discord_webhook_url", "")
@@ -295,17 +295,15 @@ def send_discord_notification(dashboard_path: str) -> str:
 
     today = datetime.date.today()
     today_str = f"{today.day} de {MONTHS_ES[today.month - 1]} de {today.year}"
-
     account_names = [a["name"] for a in config.get("accounts", [])]
     accounts_text = " | ".join(account_names) if account_names else "Sin cuentas"
 
     content = (
         f"📊 **Reporte Meta Ads listo — {today_str}**\n\n"
         f"**Cuentas:** {accounts_text}\n"
-        f"**Incluye:** KPIs · Embudo de conversión · Gráfico de tendencia · Tabla de campañas\n"
-        f"**Períodos:** Ayer · 7 días · 30 días · Trimestre\n\n"
+        f"**Incluye:** KPIs · Comparativa mes vs anterior · Breakdowns por región/hora/audiencia/plataforma · Embudo · Campañas\n"
+        f"**Períodos:** Ayer · 7 días · Este mes vs anterior · Último trimestre\n\n"
         f"**Para ver el dashboard:**\n"
-        f"Copiá y pegá esta ruta en la barra de tu navegador:\n"
         f"`file://{dashboard_path}`"
     )
 
